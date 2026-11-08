@@ -1,0 +1,468 @@
+start transaction;
+/*create table*/
+/* Passenger*/ 
+CREATE TABLE Passenger (
+  passenger_id bigint not null PRIMARY KEY,
+  passport_No VARCHAR(10) NOT NULL UNIQUE,
+  name VARCHAR(30) NOT NULL,
+  gender ENUM('unknown','male','female','non-binary') DEFAULT 'unknown',
+  mobile VARCHAR(20)
+);  
+
+/*Booking*/
+CREATE TABLE Booking (
+  booking_No bigint NOT NULL,
+  passenger_id bigint,
+  booking_price DECIMAL(6,2) NOT NULL check (booking_price > 0),
+  booking_time DATETIME NOT NULL, /*booking_time is when a transaction is made, need it to calculate commission fee, the time is usually different from flight time*/
+  payment_method ENUM('other','credit card','debit card','paypal','alipay'),
+  PRIMARY KEY(booking_No,passenger_id),
+  FOREIGN KEY (passenger_id) REFERENCES Passenger (passenger_id)
+); 
+
+/*Aircraft*/
+CREATE TABLE Aircraft (
+  aircraft_type VARCHAR(15) NOT NULL PRIMARY KEY unique
+);
+
+/*Seat*/
+CREATE TABLE Seat_template_type (
+  seat_No VARCHAR(4) NOT NULL,
+  aircraft_type VARCHAR(15) not null,
+  seat_class ENUM('first-class','economy') NOT NULL,
+  PRIMARY KEY (seat_No,aircraft_type),
+  FOREIGN KEY (aircraft_type) REFERENCES Aircraft (aircraft_type)/*foreign key constraint*/
+); 
+/*Airport*/
+CREATE TABLE Airport (
+  IATA CHAR(3) PRIMARY KEY NOT NULL,
+  airport_name VARCHAR(50),
+  city VARCHAR(20),
+  country_code CHAR(2)
+); 
+/*Flight*/
+CREATE TABLE Flight (
+  flight_id bigint NOT NULL unique primary key,/*create to ensure uniqueness*/
+  flight_No VARCHAR(10) NOT NULL,
+  depart_time DATETIME,
+  departAirportIATA CHAR(3),
+  arrival_time DATETIME,
+  arrivalAirportIATA CHAR(3),
+  aircraft_type VARCHAR(15) not null,
+  status VARCHAR(10) NOT NULL,
+  FOREIGN KEY (aircraft_type) REFERENCES Aircraft (aircraft_type),
+  FOREIGN KEY (departAirportIATA) REFERENCES Airport (IATA),
+  FOREIGN KEY (arrivalAirportIATA) REFERENCES Airport (IATA),
+  constraint check (arrival_time > depart_time)
+); 
+create table Booking_Seat (
+  booking_No bigint,
+  flight_id bigint,
+  seat_No VARCHAR(4) NULL, /*to show occupied seats, it can be null when passenger has not check-in or assign a seat*/ 
+  aircraft_type VARCHAR(15) not null,
+  passenger_id bigint not null,
+  primary key(booking_No,flight_id,passenger_id),
+  FOREIGN KEY (aircraft_type) REFERENCES Aircraft (aircraft_type),
+  foreign key(booking_No,passenger_id) references Booking(booking_No,passenger_id),
+  foreign key(flight_id) references Flight(flight_id) on delete cascade,
+  foreign key(seat_No,aircraft_type) references Seat_template_type(seat_No,aircraft_type),/*foreign key constraint：seat_No assign must exist in Seat_template_type with the same aircraft_type*/
+  unique (flight_id, seat_no)
+);
+commit;
+
+start transaction;
+/*insert values*/
+INSERT INTO Passenger VALUES
+('1001', 'P1234567', 'AB de Villers', 'male', '+44123456789'), 
+('1011', 'P1234568', 'AC de Villers', 'female', '+44123456788'), 
+('1012', 'P1234569', 'AD de Villers', 'female', '+44123456787'), 
+('1013', 'P1234560', 'AN de Villers', 'male', '+44123456786'), /*a family of four*/
+('1002', 'P2345678', 'Hashim Amla', 'male', '+44234567890'), 
+('1003', 'P3456789', 'Michael Clarke', 'male', '+44345678901'),
+('1004', 'P4567890', 'Kumar Sangakkara', 'male', '+44456789012'),
+('1005', 'P5678901', 'Shivnarine Chanderpaul', 'male', '+44567890123'),
+('1006', 'P6789012', 'Dale Steyn', 'male', '+44678901234'),
+('1007', 'P7890123', 'Vernon Philander', 'male', '+44789012345'),
+('1008', 'P8901234', 'Rangana Herath', 'male', '+44890123456'),
+('1009', 'P9012345', 'Saeed Ajmal', 'male', '+44901234567'),
+('1010', 'P0123456', 'Ravichandran Ashwin', 'male', '+44012345678');
+INSERT INTO Booking VALUES
+('9167818947969', '1001', 1500.00, '2026-02-10 14:30:00', 'credit card'),
+('9167818947969', '1011', 0.01, '2026-02-10 14:30:00', 'credit card'),
+('9167818947969', '1012', 0.01, '2026-02-10 14:30:00', 'credit card'),
+('9167818947969', '1013', 0.01, '2026-02-10 14:30:00', 'credit card'),/*joint booking*/
+('9167818947970', '1010', 299.50, '2026-02-10 15:30:00', 'credit card'),
+('9167818947971', '1001', 299.50, '2026-02-17 08:40:00', 'credit card'),
+('9167818947972', '1002', 8500.00, '2025-01-20 09:15:00', 'credit card'),
+('9167818947973', '1002', 8500.00, '2025-01-20 10:30:00', 'credit card'),
+('9167818947974', '1003', 1200.00, '2025-02-12 11:20:00', 'credit card'),
+('9167818947975', '1004', 780.25, '2025-02-13 16:45:00', 'paypal'),
+('9167818947976', '1005', 1500.00, '2025-02-14 10:10:00', 'credit card'),
+('9167818947977', '1006', 420.75, '2025-02-15 13:25:00', 'debit card'),
+('9167818947978', '1007', 920.00, '2025-02-16 08:40:00', 'credit card'),
+('9167818947979', '1008', 650.00, '2025-02-18 15:20:00', 'alipay');
+
+INSERT INTO Aircraft VALUES
+('Boeing 737'),
+('Boeing 777'),
+('Boeing 787'),
+('A318'),
+('A319'),
+('A320'),
+('A321');
+INSERT INTO Seat_template_type VALUES
+('1A', 'Boeing 737', 'first-class'),
+('1C', 'Boeing 737', 'first-class'),
+('1J', 'Boeing 737', 'first-class'),
+('1L', 'Boeing 737', 'first-class'),
+('2A', 'Boeing 737', 'first-class'),
+('2C', 'Boeing 737', 'first-class'),
+('2J', 'Boeing 737', 'first-class'),
+('2L', 'Boeing 737', 'first-class'),
+('11A', 'Boeing 737', 'economy'),
+('11B', 'Boeing 737', 'economy'),
+('11C', 'Boeing 737', 'economy'), 
+('11J', 'Boeing 737', 'economy'), 
+('11K', 'Boeing 737', 'economy'), 
+('11L', 'Boeing 737', 'economy'),
+('12A', 'Boeing 737', 'economy'),
+('12B', 'Boeing 737', 'economy'),
+('12C', 'Boeing 737', 'economy'), 
+('12J', 'Boeing 737', 'economy'), 
+('12K', 'Boeing 737', 'economy'), 
+('12L', 'Boeing 737', 'economy'),
+('13A', 'Boeing 737', 'economy'),
+('13B', 'Boeing 737', 'economy'),
+('13C', 'Boeing 737', 'economy'), 
+('13J', 'Boeing 737', 'economy'), 
+('13K', 'Boeing 737', 'economy'), 
+('13L', 'Boeing 737', 'economy'),
+('14A', 'Boeing 737', 'economy'),
+('14B', 'Boeing 737', 'economy'),
+('14C', 'Boeing 737', 'economy'), 
+('14J', 'Boeing 737', 'economy'), 
+('14K', 'Boeing 737', 'economy'), 
+('14L', 'Boeing 737', 'economy'),
+('15A', 'Boeing 737', 'economy'),
+('15B', 'Boeing 737', 'economy'),
+('15C', 'Boeing 737', 'economy'), 
+('15J', 'Boeing 737', 'economy'), 
+('15K', 'Boeing 737', 'economy'), 
+('15L', 'Boeing 737', 'economy'),
+('16A', 'Boeing 737', 'economy'),
+('16B', 'Boeing 737', 'economy'),
+('16C', 'Boeing 737', 'economy'), 
+('16J', 'Boeing 737', 'economy'), 
+('16K', 'Boeing 737', 'economy'), 
+('16L', 'Boeing 737', 'economy'),
+('17A', 'Boeing 737', 'economy'),
+('17B', 'Boeing 737', 'economy'),
+('17C', 'Boeing 737', 'economy'), 
+('17J', 'Boeing 737', 'economy'), 
+('17K', 'Boeing 737', 'economy'), 
+('17L', 'Boeing 737', 'economy'),
+('18A', 'Boeing 737', 'economy'),
+('18B', 'Boeing 737', 'economy'),
+('18C', 'Boeing 737', 'economy'), 
+('18J', 'Boeing 737', 'economy'), 
+('18K', 'Boeing 737', 'economy'), 
+('18L', 'Boeing 737', 'economy'),
+('19A', 'Boeing 737', 'economy'),
+('19B', 'Boeing 737', 'economy'),
+('19C', 'Boeing 737', 'economy'), 
+('19J', 'Boeing 737', 'economy'), 
+('19K', 'Boeing 737', 'economy'), 
+('19L', 'Boeing 737', 'economy'),
+('20A', 'Boeing 737', 'economy'),
+('20B', 'Boeing 737', 'economy'),
+('20C', 'Boeing 737', 'economy'), 
+('20J', 'Boeing 737', 'economy'), 
+('20K', 'Boeing 737', 'economy'), 
+('20L', 'Boeing 737', 'economy'),
+('21A', 'Boeing 737', 'economy'),
+('21B', 'Boeing 737', 'economy'),
+('21C', 'Boeing 737', 'economy'), 
+('21J', 'Boeing 737', 'economy'), 
+('21K', 'Boeing 737', 'economy'), 
+('21L', 'Boeing 737', 'economy'),
+('22A', 'Boeing 737', 'economy'),
+('22B', 'Boeing 737', 'economy'),
+('22C', 'Boeing 737', 'economy'), 
+('22J', 'Boeing 737', 'economy'), 
+('22K', 'Boeing 737', 'economy'), 
+('22L', 'Boeing 737', 'economy'),
+('23A', 'Boeing 737', 'economy'),
+('23B', 'Boeing 737', 'economy'),
+('23C', 'Boeing 737', 'economy'), 
+('23J', 'Boeing 737', 'economy'), 
+('23K', 'Boeing 737', 'economy'), 
+('23L', 'Boeing 737', 'economy'),
+('24A', 'Boeing 737', 'economy'),
+('24B', 'Boeing 737', 'economy'),
+('24C', 'Boeing 737', 'economy'), 
+('24J', 'Boeing 737', 'economy'), 
+('24K', 'Boeing 737', 'economy'), 
+('24L', 'Boeing 737', 'economy'),
+('25A', 'Boeing 737', 'economy'),
+('25B', 'Boeing 737', 'economy'),
+('25C', 'Boeing 737', 'economy'), 
+('25J', 'Boeing 737', 'economy'), 
+('25K', 'Boeing 737', 'economy'), 
+('25L', 'Boeing 737', 'economy'),
+('26A', 'Boeing 737', 'economy'),
+('26B', 'Boeing 737', 'economy'),
+('26C', 'Boeing 737', 'economy'), 
+('26J', 'Boeing 737', 'economy'), 
+('26K', 'Boeing 737', 'economy'), 
+('26L', 'Boeing 737', 'economy'),
+('27A', 'Boeing 737', 'economy'),
+('27B', 'Boeing 737', 'economy'),
+('27C', 'Boeing 737', 'economy'), 
+('27J', 'Boeing 737', 'economy'), 
+('27K', 'Boeing 737', 'economy'), 
+('27L', 'Boeing 737', 'economy'),
+('28A', 'Boeing 737', 'economy'),
+('28B', 'Boeing 737', 'economy'),
+('28C', 'Boeing 737', 'economy'), 
+('28J', 'Boeing 737', 'economy'), 
+('28K', 'Boeing 737', 'economy'), 
+('28L', 'Boeing 737', 'economy'),
+('29A', 'Boeing 737', 'economy'),
+('29B', 'Boeing 737', 'economy'),
+('29C', 'Boeing 737', 'economy'), 
+('29J', 'Boeing 737', 'economy'), 
+('29K', 'Boeing 737', 'economy'), 
+('29L', 'Boeing 737', 'economy'),
+('30A', 'Boeing 737', 'economy'),
+('30B', 'Boeing 737', 'economy'),
+('30C', 'Boeing 737', 'economy'), 
+('30J', 'Boeing 737', 'economy'), 
+('30K', 'Boeing 737', 'economy'), 
+('30L', 'Boeing 737', 'economy'),
+('1A', 'Boeing 787', 'first-class');
+INSERT INTO Airport VALUES
+('CKG', 'Chongqing Jiangbei International Airport', 'Chongqing', 'CN'),
+('SYX', 'Sanya Phoenix International Airport', 'Sanya', 'CN'),
+('LHR', 'Heathrow Airport', 'London', 'GB'),
+('JFK', 'John F. Kennedy International Airport', 'New York', 'US'),
+('CDG', 'Charles de Gaulle Airport', 'Paris', 'FR'),
+('FRA', 'Frankfurt Airport', 'Frankfurt', 'DE'),
+('SIN', 'Changi Airport', 'Singapore', 'SG'),
+('DXB', 'Dubai International Airport', 'Dubai', 'AE'),
+('SYD', 'Sydney Airport', 'Sydney', 'AU'),
+('HND', 'Haneda Airport', 'Tokyo', 'JP');
+INSERT INTO Flight VALUES
+('101','3U8061', '2026-02-16 08:30:00', 'CKG', '2026-02-16 10:45:00', 'SYX', 'Boeing 737','on time'),
+('102','3U8062',  '2026-02-19 18:20:00', 'SYX', '2026-02-19 20:35:00', 'CKG','Boeing 737', 'on time'),
+('103','BA88', '2025-02-14 12:00:00', 'CKG', '2025-02-14 17:30:00', 'LHR', 'Boeing 787','on time'),
+('104','BA89', '2025-02-24 10:00:00', 'LHR', '2025-02-24 23:30:00', 'CKG', 'Boeing 787','on time'), 
+('105','LH732',  '2025-02-17 08:30:00', 'FRA', '2025-02-17 12:15:00', 'CDG', 'Boeing 787','on time'),
+('106','EK304',  '2025-02-18 15:45:00', 'DXB', '2025-02-19 05:20:00', 'SIN', 'Boeing 787','boarding'),
+('107','AA108',  '2025-02-19 10:10:00', 'JFK', '2025-02-19 13:30:00', 'LHR','Boeing 787', 'on time'),
+('108','AF765',  '2025-02-20 11:40:00', 'CDG', '2025-02-20 15:20:00', 'FRA', 'Boeing 787','on time'),
+('109','SQ202', '2025-02-21 14:15:00', 'SIN', '2025-02-21 18:40:00', 'CKG','Boeing 787', 'delayed'),
+('110','JL589', '2025-02-22 09:45:00', 'HND', '2025-02-22 14:20:00', 'CKG','Boeing 787', 'on time');
+INSERT INTO Booking_Seat VALUES
+('9167818947969', '101', '2A','Boeing 737','1001'),
+('9167818947969', '101', '2C','Boeing 737','1011'),
+('9167818947969', '101', null,'Boeing 737','1012'),
+('9167818947969', '101', null,'Boeing 737','1013'),/*family order*/
+('9167818947970', '101',null,'Boeing 737','1010'),
+('9167818947971', '102', null,'Boeing 737','1001'),
+('9167818947972', '103',null,'Boeing 787','1002'),
+('9167818947973', '104',null,'Boeing 787','1002'),
+('9167818947974', '105','1A','Boeing 787','1003'),
+('9167818947975', '106', null,'Boeing 787','1004'),
+('9167818947976', '107',null,'Boeing 787','1005'),
+('9167818947977', '108',null,'Boeing 787','1006'),
+('9167818947978', '109',null,'Boeing 787','1007'),
+('9167818947979', '110',null,'Boeing 787','1008');
+commit;
+
+start transaction;
+/*update statement*/
+/*airline delay flight 3U8061 due to bad weather in Chongqing on 2026-02-16, update status and time*/
+update Flight
+set
+  status='delayed'
+where flight_No='3U8061'
+  and Date(depart_time)='2026-02-16';
+  
+/*when passenger'Ravichandran Ashwin' check-in, assign a available seat*/
+/*create trigger to prevent occupied seat update*/
+DELIMITER //
+CREATE TRIGGER prevent_occupied_seat_update
+BEFORE UPDATE ON Booking_Seat
+FOR EACH ROW
+BEGIN
+    IF NEW.seat_No IS NOT NULL AND (NEW.seat_No <> OLD.seat_No OR OLD.seat_No IS NULL) THEN/*check only when successfully update a seat + seat_No change from either old.seat or null*/ 
+        IF EXISTS (
+            SELECT 1
+            FROM Booking_Seat BS 
+            where BS.seat_No = NEW.seat_No 
+              AND BS.flight_id=NEW.flight_id
+              AND BS.booking_No <> NEW.booking_No  /*excluded current update*/
+        ) THEN
+            SIGNAL SQLSTATE 'NNNNN'
+            SET MESSAGE_TEXT = 'warning!！！seat is already occupied!!!';
+        END IF;
+    END IF;
+END;
+//
+DELIMITER ;
+
+update Booking_Seat BS
+join Booking B on B.booking_No=BS.booking_No
+join Passenger P on P.passenger_id=b.passenger_id
+set seat_No='11A'/*change this seat_No to a occupid seat'2A'*/
+where P.name='Ravichandran Ashwin';
+commit;
+
+/*six meaningful queries*/
+/*a)	passenger user: flight search: From Chongqing to Sanya between 2026-02-16 to 2026-02-26*/
+select 
+  F.depart_time, 
+  F.arrival_time, 
+  F.flight_No, 
+  total.totalticket, 
+  COALESCE(sub.ticketsold, 0) as ticketsold,/*if sub.ticketsold is null, replace with 0*/
+  (total.totalticket-COALESCE(sub.ticketsold, 0)) as available
+from Flight F
+join Airport A1 ON F.DepartAirportIATA=A1.IATA
+join Airport A2 ON F.ArrivalAirportIATA=A2.IATA
+join (
+  select aircraft_type, count(*) AS totalticket/*totalticket=all available seats count for flight's aircraft_type*/
+  from Seat_template_type S
+  group by aircraft_type
+) as total ON F.aircraft_type=total.aircraft_type
+left join (
+  select flight_id, count(*) AS ticketsold/*ticketsold=flight_id counts in Booking_Seat Table*/
+  from Booking_Seat BS
+  group by flight_id
+) as sub ON sub.flight_id=F.flight_id
+where A1.city='Chongqing'
+  and A2.city='Sanya'
+  and F.depart_time>='2026-02-16 00:00:00' 
+  and F.depart_time<'2026-02-27 00:00:00'
+  and (total.totalticket-COALESCE(sub.ticketsold, 0)) >0; /*ignore full flights*/
+
+  
+/*b)	for Passenger user: AB de Villers checks his flight's aircraft_type on 2026-02-16 */
+select F.aircraft_type
+from Passenger P
+join Booking B on P.passenger_id=B.Passenger_id
+join Booking_Seat as BS on BS.booking_No=B.booking_No and BS.passenger_id=B.passenger_id
+join Flight as F on F.flight_id=BS.flight_id
+where P.name='AB de Villers'
+  and P.mobile='+44123456789'
+  and DATE(F.depart_time)='2026-02-16';/*to simulate real-world example, airline usually ask for name, mobile, flight_date,etc to ensure uniqueness, they will not ask Passenger_id as passengers usually don't know their id*/
+
+  
+/*c)	airline user: Sichuan Airline checks passengers who not yet assign a seat or check-in, and show the remaining first-class seats for these passenger, example:flight_id101*/
+WITH FlightAircraft AS (
+    SELECT aircraft_type 
+    FROM Flight 
+    WHERE flight_id = '101'
+),
+SeatSummary AS (
+    SELECT 
+        COUNT(S.seat_No) AS totalfirstclass,
+        COUNT(BS.seat_No) AS occupiedfirstclass,
+        (COUNT(S.seat_No) - COUNT(BS.seat_No)) AS remainingfirstclass
+    FROM Seat_template_type S
+    LEFT JOIN Booking_Seat BS 
+        ON BS.seat_No = S.seat_No
+        AND BS.aircraft_type = (SELECT aircraft_type FROM FlightAircraft)
+        AND BS.flight_id = '101'
+    WHERE S.aircraft_type = (SELECT aircraft_type FROM FlightAircraft)
+        AND S.seat_class = 'first-class'
+    HAVING remainingfirstclass > 0
+),
+UnassignedPassengers AS (
+    SELECT P.name
+    FROM Booking_Seat BS
+    JOIN Booking B ON B.booking_No = BS.booking_No and B.passenger_id=BS.passenger_id
+    JOIN Passenger P ON P.passenger_id = B.passenger_id
+    WHERE BS.seat_No IS NULL 
+        AND BS.flight_id = '101'
+),
+AvailableSeats AS (
+    SELECT S.seat_No AS availablefirstclassseat
+    FROM Seat_template_type S
+    WHERE S.aircraft_type = (SELECT aircraft_type FROM FlightAircraft)
+        AND S.seat_class = 'first-class'
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM Booking_Seat BS 
+            WHERE BS.seat_No = S.seat_No 
+                AND BS.flight_id = '101'
+        )
+)
+
+SELECT 
+    (SELECT remainingfirstclass FROM SeatSummary) AS remaining_fseats,
+    (SELECT GROUP_CONCAT(name) FROM UnassignedPassengers) AS unassigned_passengers,
+    (SELECT GROUP_CONCAT(availablefirstclassseat) FROM AvailableSeats) AS available_fseats_list;
+
+/*d)	intermediary user: calculate total 2026 Feb commission fee, and list every commission fee order by transaction time and price. */
+select SUM(booking_price)*0.1 AS Commission202602_pound /*calculate commission fee on-demand to reduce system burden*/
+from Booking
+where booking_time>='2025-02-01' and booking_time<='2025-02-28'
+group by month(booking_time) /*sum table*/
+having SUM(booking_price)*0.1>0; /*when create table already check booking_price>0, double check commission fee here*/
+select date(booking_time), booking_price
+from Booking
+where booking_time>='2025-02-01' and booking_time<='2025-02-28'
+order by booking_time asc,booking_price desc; /*order for clarity, list all sum transaction*/
+
+/*e)	a useful survey: count payment method per transaction, list most popular one.*/
+with payment_count as (
+  select 
+    sum(case when payment_method='credit card' then 1 else 0 end) as creditcard, /*when case, mark 1, else 0, sum all marks, end. instead of using count.'count' clause counts all not null values.*/
+    sum(case when payment_method='debit card' then 1 else 0 end) as debitcard,
+    sum(case when payment_method='paypal' then 1 else 0 end) as paypal,
+    sum(case when payment_method='Alipay' then 1 else 0 end) as Alipay,
+    sum(case when payment_method='other' then 1 else 0 end) as other
+  from Booking
+)
+select
+  case greatest(creditcard,debitcard,paypal,Alipay,other)
+    when creditcard then 'credit card'
+    when debitcard then 'debit card'
+    when paypal then 'paypal'
+    when Alipay then 'Alipay'
+    else 'other'
+  end as most_popular,/*only output the greatest method*/
+  greatest(creditcard,debitcard,paypal,Alipay,other) as most_popular_count /*only output the greatest count.*/
+from payment_count; 
+  
+/*f)	flight ticket promotion: inactive passengers, targeting no booking passengers, retrieve mobile to send coupon*/
+select name, mobile
+from Passenger P
+where not exists (
+  select passenger_id from Booking B
+  where P.passenger_id=B.passenger_id
+  and mobile is not null /*no meaningless return in defined scenario*/
+order by P.name /*mobile list order by passenger name.*/
+);
+
+/*delete*/
+start transaction;
+/*Passenger AB de Villers cancel the trip on 2026-02-16, */
+delete BS
+from Booking_Seat BS
+join Booking B on B.booking_No=BS.booking_No
+join Passenger P on B.passenger_id=P.passenger_id
+join Flight F on F.flight_id=BS.flight_id
+where P.name='AB de Villers'
+  AND F.depart_time >= '2026-02-16 00:00:00'
+  AND F.depart_time < '2026-02-17 00:00:00';
+  
+savepoint before_delete_flight;
+/*after 5 hours, weather still bad, so the flight for 2026-02-16 is cancel, delete parent row, also check constraint on delete cascade*/
+delete from Flight F
+where flight_No='3U8061'
+  AND F.depart_time >= '2026-02-16 00:00:00'
+  AND F.depart_time < '2026-02-17 00:00:00';
+rollback to before_delete_flight;
+commit;
