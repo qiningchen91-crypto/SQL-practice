@@ -188,12 +188,10 @@ GROUP BY st.seat_class;
 CREATE DATABASE flight_booking CHARACTER SET utf8mb4;
 ```
 
-2. 按以下顺序导入脚本（外键依赖决定顺序）：
+2. 导入脚本（外键依赖决定顺序）：
 
 ```text
-schema.sql        -- 建表与约束
-sample_data.sql   -- 示例数据
-queries.sql       -- 查询示例
+flight-ticket.sql
 ```
 
 3. 运行环境：MySQL 8.0 以上（`RANK()` 等窗口函数需要 8.0+）。
@@ -202,7 +200,7 @@ queries.sql       -- 查询示例
 
 ## Known Limitations
 
-- `Booking_seat` 中的 `flight_id` 与 `Booking` 表中的 `flight_id` 存在冗余，目前依赖应用层保证一致，未使用触发器约束。
 - `Seat_template_type` 缺少座位总数上限约束（应不超过机型的 `seat_capacity`）。
+- 次要（不解决不会影响结果）
 - `Passenger.passport_No` 客观上应为候选键，但当前未添加 UNIQUE 约束。
 - `status`、`gender`、`payment_method`、`seat_class` 的枚举取值域尚未在独立表中固化。
